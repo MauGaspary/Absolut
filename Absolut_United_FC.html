@@ -476,8 +476,16 @@
             >Peso Folego<input id="w2" type="number" min="0" step="1" value="2"
           /></label>
           <label class="f"
-            >Peso Habilidade<input
+            >Peso Força<input
               id="w3"
+              type="number"
+              min="0"
+              step="1"
+              value="2"
+          /></label>
+          <label class="f"
+            >Peso Habilidade<input
+              id="w4"
               type="number"
               min="0"
               step="1"
@@ -512,11 +520,11 @@
             </select></label
           >
           <label class="f"
-            >Corrida (1-5)<input
+            >Corrida (0-10)<input
               id="n1"
               type="number"
               min="0"
-              max="5"
+              max="10"
               step="0.5"
           /></label>
           <label class="f"
@@ -528,8 +536,16 @@
               step="0.5"
           /></label>
           <label class="f"
-            >Habilidade (0-10)<input
+            >Força (0-10)<input
               id="n3"
+              type="number"
+              min="0"
+              max="10"
+              step="0.5"
+          /></label>
+          <label class="f"
+            >Habilidade (0-10)<input
+              id="n4"
               type="number"
               min="0"
               max="10"
@@ -579,6 +595,9 @@
                     <button class="sb" data-sort="folego">Folego<i></i></button>
                   </th>
                   <th>
+                    <button class="sb" data-sort="forca">Força<i></i></button>
+                  </th>
+                  <th>
                     <button class="sb" data-sort="hab">
                       Habilidade<i></i>
                     </button>
@@ -616,6 +635,9 @@
                   </th>
                   <th>
                     <button class="sb" data-sort="folego">Folego<i></i></button>
+                  </th>
+                  <th>
+                    <button class="sb" data-sort="forca">Força<i></i></button>
                   </th>
                   <th>
                     <button class="sb" data-sort="hab">
@@ -664,7 +686,7 @@
         const s = JSON.parse(localStorage.getItem("auf") || "null");
         if (s && s.players) {
           players = s.players;
-          ["w1", "w2", "w3"].forEach((id, i) => {
+          ["w1", "w2", "w3", "w4"].forEach((id, i) => {
             if (s.w) $("#" + id).value = s.w[i];
           });
         }
@@ -675,16 +697,15 @@
             "auf",
             JSON.stringify({
               players,
-              w: [w1.value, w2.value, w3.value].map(Number),
+              w: [w1.value, w2.value, w3.value, w4.value].map(Number),
             }),
           );
         } catch (e) {}
       }
       const num = (v) => (v === "" || v == null || isNaN(+v) ? null : +v);
       function nota(p) {
-        const W = [+w1.value || 0, +w2.value || 0, +w3.value || 0];
-        // Multiplicamos a corrida por 2 para que a nota máxima (5) equivalha a 10
-        const V = [num(p.corrida) != null ? num(p.corrida) * 2 : null, num(p.folego), num(p.hab)];
+        const W = [+w1.value || 0, +w2.value || 0, +w3.value || 0, +w4.value || 0];
+        const V = [num(p.corrida), num(p.folego), num(p.forca), num(p.hab)];
         let s = 0,
           d = 0;
         V.forEach((v, i) => {
@@ -709,6 +730,7 @@
         nota: (p) => nota(p),
         corrida: (p) => num(p.corrida),
         folego: (p) => num(p.folego),
+        forca: (p) => num(p.forca),
         hab: (p) => num(p.hab),
       };
       function order(arr) {
@@ -755,7 +777,7 @@
    <td class="l"><input class="nm" data-i="${i}" data-f="nome" value="${esc(p.nome)}"></td>
    <td><select data-i="${i}" data-f="pos"><option value=""></option>${POS.map((o) => `<option ${o === p.pos ? "selected" : ""}>${o}</option>`).join("")}</select></td>
    <td class="nota">${f2(nota(p))}</td>
-   ${["corrida", "folego", "hab"].map((f) => `<td><input type="number" min="0" max="${f === "corrida" ? 5 : 10}" step="0.5" data-i="${i}" data-f="${f}" value="${p[f] ?? ""}"></td>`).join("")}
+   ${["corrida", "folego", "forca", "hab"].map((f) => `<td><input type="number" min="0" max="10" step="0.5" data-i="${i}" data-f="${f}" value="${p[f] ?? ""}"></td>`).join("")}
    <td><button class="x" data-del="${i}" aria-label="Remover ${esc(p.nome)}" title="Remover">×</button></td>
   </tr>`;
           })
@@ -766,10 +788,10 @@
           sel
             .map(
               (p) =>
-                `<tr><td class="l">${esc(p.nome)}</td><td>${esc(p.pos)}</td><td class="nota">${f2(nota(p))}</td><td>${p.corrida ?? ""}</td><td>${p.folego ?? ""}</td><td>${p.hab ?? ""}</td></tr>`,
+                `<tr><td class="l">${esc(p.nome)}</td><td>${esc(p.pos)}</td><td class="nota">${f2(nota(p))}</td><td>${p.corrida ?? ""}</td><td>${p.folego ?? ""}</td><td>${p.forca ?? ""}</td><td>${p.hab ?? ""}</td></tr>`,
             )
             .join("") ||
-          `<tr><td colspan="6" style="color:var(--muted);padding:18px">Marque "Vai?" para trazer o atleta para cá.</td></tr>`;
+          `<tr><td colspan="7" style="color:var(--muted);padding:18px">Marque "Vai?" para trazer o atleta para cá.</td></tr>`;
         markSort();
         $("#c1").textContent = players.length + " atletas";
         $("#c2").textContent = sel.length + " marcados";
@@ -783,12 +805,12 @@
         players[i][f] =
           f === "vai"
             ? t.checked
-            : ["corrida", "folego", "hab"].includes(f)
+            : ["corrida", "folego", "forca", "hab"].includes(f)
               ? num(t.value)
               : t.value;
         render();
       });
-      [w1, w2, w3].forEach((x) => x.addEventListener("change", render));
+      [w1, w2, w3, w4].forEach((x) => x.addEventListener("change", render));
       $("#nf").addEventListener("submit", (e) => {
         e.preventDefault();
         const nome = $("#nn").value.trim();
@@ -799,7 +821,8 @@
           pos: $("#np").value,
           corrida: num($("#n1").value),
           folego: num($("#n2").value),
-          hab: num($("#n3").value),
+          forca: num($("#n3").value),
+          hab: num($("#n4").value),
         });
         $("#nf").reset();
         $("#nv").checked = true;
@@ -823,6 +846,7 @@
           "Posição": p.pos,
           "Corrida": p.corrida,
           "Fôlego": p.folego,
+          "Força": p.forca,
           "Habilidade": p.hab
         }));
         const wb = XLSX.utils.book_new();
@@ -855,6 +879,7 @@
               pos: g(r, /^posi/i) || "",
               corrida: num(g(r, /^corrida/i)),
               folego: num(g(r, /^f[oô]lego/i)),
+              forca: num(g(r, /^for[cç]a/i)),
               hab: num(g(r, /^habilidade/i)),
             }));
           if (out.length) {
@@ -1051,6 +1076,7 @@
           return {
             corrida: calcAvg("corrida"),
             folego: calcAvg("folego"),
+            forca: calcAvg("forca"),
             hab: calcAvg("hab"),
           };
         });
@@ -1073,6 +1099,7 @@
      <div class="team-subbar">
        <span>Corrida: <b>${f2(attrStats[ti].corrida)}</b></span>
        <span>Fôlego: <b>${f2(attrStats[ti].folego)}</b></span>
+       <span>Força: <b>${f2(attrStats[ti].forca)}</b></span>
        <span>Hab: <b>${f2(attrStats[ti].hab)}</b></span>
      </div>
      <ul>${t.map((p) => `<li><span>${esc(p.nome)}<em>${esc(p.pos)}</em></span><span>${f2(p.n)}</span></li>`).join("")}</ul>
