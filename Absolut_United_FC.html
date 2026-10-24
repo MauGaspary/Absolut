@@ -362,6 +362,21 @@
         overflow: hidden;
         min-width: 0;
       }
+      .team-subbar {
+        display: flex;
+        justify-content: space-around;
+        padding: 5px 10px;
+        font-size: 11px;
+        background: var(--accent-soft);
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .team-subbar b {
+        color: var(--fg);
+        font-variant-numeric: tabular-nums;
+      }
       .team header {
         display: flex;
         justify-content: space-between;
@@ -621,8 +636,7 @@
             >Nº de times<input id="k" type="number" min="2" max="8" value="2"
           /></label>
           <button class="btn primary" id="gen">Gerar times</button>
-          <button class="btn" id="regen" hidden>Gerar de novo</button>
-          <p class="note">
+                    <p class="note">
             Equilibra a média das notas. Cada time recebe defensores, atacantes
             e goleiro.
           </p>
@@ -999,7 +1013,6 @@
         if (sel.length < k * 2) {
           showMsg(`Marque ao menos ${k * 2} atletas para formar ${k} times.`);
           $("#res").innerHTML = "";
-          $("#regen").hidden = true;
           return;
         }
         const rated = sel.map(nota).filter((v) => v != null),
@@ -1023,15 +1036,24 @@
               "Não foi possível cumprir todas as regras com os atletas marcados. Mostrei a divisão que mais se aproxima.",
           );
         cur = 0;
-        $("#regen").hidden = false;
         show();
       }
       function show() {
         const s = sols[cur];
-        if (!s.colors) s.colors = ["🔵", "🔴"].sort(() => Math.random() - 0.5);
-        const stats = s.teams.map(
+                const stats = s.teams.map(
           (t) => t.reduce((a, p) => a + p.n, 0) / t.length,
         );
+        const attrStats = s.teams.map((t) => {
+          const calcAvg = (f) => {
+            const vals = t.map((p) => num(p[f])).filter((v) => v != null);
+            return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+          };
+          return {
+            corrida: calcAvg("corrida"),
+            folego: calcAvg("folego"),
+            hab: calcAvg("hab"),
+          };
+        });
         const diff = Math.max(...stats) - Math.min(...stats);
         $("#res").innerHTML = `<div class="tabs" role="tablist">${sols
           .map((x, i) => {
@@ -1047,7 +1069,12 @@
        (
          t,
          ti,
-       ) => `<article class="team"><header><b>${s.colors[ti % s.colors.length]} Time ${String.fromCharCode(65 + ti)}</b><span class="avg">${f2(stats[ti])}</span></header>
+       ) => `<article class="team"><header><b>Time ${String.fromCharCode(65 + ti)}</b><span class="avg">Média: ${f2(stats[ti])}</span></header>
+     <div class="team-subbar">
+       <span>Corrida: <b>${f2(attrStats[ti].corrida)}</b></span>
+       <span>Fôlego: <b>${f2(attrStats[ti].folego)}</b></span>
+       <span>Hab: <b>${f2(attrStats[ti].hab)}</b></span>
+     </div>
      <ul>${t.map((p) => `<li><span>${esc(p.nome)}<em>${esc(p.pos)}</em></span><span>${f2(p.n)}</span></li>`).join("")}</ul>
      <footer>${t.length} atletas · ${t.filter((p) => p.pos === "6. Gol").length} goleiro(s)</footer></article>`,
      )
@@ -1055,8 +1082,9 @@
 
         let wppText = "*Absolut FC*\n";
         s.teams.forEach((t, i) => {
-          wppText += "\n" + s.colors[i % s.colors.length] + "\n";
-          t.forEach(p => wppText += p.nome + "\n");
+          wppText += "\n*Time " + String.fromCharCode(65 + i) + "*\n";
+          const sorted = [...t].sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+          sorted.forEach(p => wppText += p.nome + "\n");
         });
         if (navigator.clipboard && window.isSecureContext) {
             navigator.clipboard.writeText(wppText).catch(e => {});
@@ -1079,7 +1107,6 @@
         }
       });
       $("#gen").onclick = generate;
-      $("#regen").onclick = generate;
       $("#clear_vai").onclick = () => {
         if (!confirm("Tem certeza que deseja desmarcar todos os jogadores?")) return;
         players.forEach(p => p.vai = false);
