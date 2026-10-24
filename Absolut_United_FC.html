@@ -72,7 +72,7 @@
         padding-block: 20px 48px;
       }
       .wrap {
-        max-width: 1400px;
+        max-width: 1500px;
         margin: 0 auto;
         display: flex;
         flex-direction: column;
@@ -566,9 +566,6 @@
           <div class="ph">
             <h2>Atletas</h2>
             <span class="count" id="c1"></span>
-            <span class="ph-est"
-              >Folego e Habilidade iniciam com a nota antiga: ajuste</span
-            >
           </div>
           <div class="scroll">
             <table id="t1">
@@ -1005,6 +1002,15 @@
         const seen = new Set(),
           out = [];
         const bad = res[0].v;
+
+        function calcMedian(arr) {
+          if (!arr.length) return 0;
+          const s = [...arr].sort((a, b) => a - b);
+          const m = Math.floor(s.length / 2);
+          return s.length % 2 !== 0 ? s[m] : (s[m - 1] + s[m]) / 2;
+        }
+
+        // Opções 1 e 2: Menor discrepância de média (mais equilibradas)
         for (const r of res) {
           if (r.v > bad) break;
           const teams = Array.from({ length: k }, () => []);
@@ -1025,9 +1031,75 @@
             .join("|");
           if (seen.has(sig)) continue;
           seen.add(sig);
-          out.push({ teams, c: r.c });
-          if (out.length === 3) break;
+          out.push({ teams, c: r.c, tag: "Mais equilibrada" });
+          if (out.length === 2) break;
         }
+
+        // Opção 3: Maior mediana com tolerância a discrepância de média
+        const validCandidates = res.filter((r) => r.v === bad);
+        const candidatesWithMedian = validCandidates.map((r) => {
+          const teams = Array.from({ length: k }, () => []);
+          r.a.forEach((t, i) => teams[t].push(list[i]));
+          const medians = teams.map((t) => calcMedian(t.map((p) => p.n)));
+          const maxMed = Math.max(...medians);
+          const minMed = Math.min(...medians);
+          const avgMed = medians.reduce((a, b) => a + b, 0) / medians.length;
+          return { r, teams, maxMed, minMed, avgMed };
+        });
+
+        // Ordena para priorizar quem alcança a maior mediana em um dos times
+        candidatesWithMedian.sort((a, b) => b.maxMed - a.maxMed || b.avgMed - a.avgMed);
+
+        for (const item of candidatesWithMedian) {
+          const teams = item.teams;
+          teams.forEach((t) => t.sort((x, y) => y.n - x.n));
+          teams.sort(
+            (x, y) =>
+              x.map((p) => p.i).sort((a, b) => a - b)[0] -
+              y.map((p) => p.i).sort((a, b) => a - b)[0],
+          );
+          const sig = teams
+            .map((t) =>
+              t
+                .map((p) => p.i)
+                .sort((a, b) => a - b)
+                .join(","),
+            )
+            .join("|");
+          if (!seen.has(sig)) {
+            seen.add(sig);
+            out.push({ teams, c: item.r.c, tag: "Maior mediana" });
+            break;
+          }
+        }
+
+        // Se por acaso não encontrou terceira opção diferente, preenche com a próxima de menor custo
+        if (out.length < 3) {
+          for (const r of res) {
+            if (r.v > bad) break;
+            const teams = Array.from({ length: k }, () => []);
+            r.a.forEach((t, i) => teams[t].push(list[i]));
+            teams.forEach((t) => t.sort((x, y) => y.n - x.n));
+            teams.sort(
+              (x, y) =>
+                x.map((p) => p.i).sort((a, b) => a - b)[0] -
+                y.map((p) => p.i).sort((a, b) => a - b)[0],
+            );
+            const sig = teams
+              .map((t) =>
+                t
+                  .map((p) => p.i)
+                  .sort((a, b) => a - b)
+                  .join(","),
+              )
+              .join("|");
+            if (seen.has(sig)) continue;
+            seen.add(sig);
+            out.push({ teams, c: r.c, tag: "Alternativa" });
+            if (out.length === 3) break;
+          }
+        }
+
         return { out, mean, bad, minD, minA };
       }
       let sols = [],
@@ -1065,9 +1137,16 @@
       }
       function show() {
         const s = sols[cur];
-                const stats = s.teams.map(
+        function getMedian(arr) {
+          if (!arr.length) return 0;
+          const sorted = [...arr].sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+        const stats = s.teams.map(
           (t) => t.reduce((a, p) => a + p.n, 0) / t.length,
         );
+        const medians = s.teams.map((t) => getMedian(t.map((p) => p.n)));
         const attrStats = s.teams.map((t) => {
           const calcAvg = (f) => {
             const vals = t.map((p) => num(p[f])).filter((v) => v != null);
@@ -1086,16 +1165,17 @@
             const st = x.teams.map(
               (t) => t.reduce((a, p) => a + p.n, 0) / t.length,
             );
-            return `<button class="tab" role="tab" aria-selected="${i === cur}" data-s="${i}"><b>Opção ${i + 1}</b><small>diferença ${f2(Math.max(...st) - Math.min(...st))}</small></button>`;
+            const labelTag = x.tag ? `<span style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--accent);opacity:0.9;">${x.tag}</span>` : "";
+            return `<button class="tab" role="tab" aria-selected="${i === cur}" data-s="${i}"><b>Opção ${i + 1}</b>${labelTag}<small>dif. média ${f2(Math.max(...st) - Math.min(...st))}</small></button>`;
           })
           .join("")}</div>
-   <div class="sum"><span class="big">Diferença entre médias: ${f2(diff)}</span><span class="note">${diff < 0.15 ? "times praticamente iguais" : diff < 0.4 ? "times bem equilibrados" : "equilíbrio limitado pelos atletas marcados"}</span></div>
+   <div class="sum"><span class="big">Diferença entre médias: ${f2(diff)}</span><span class="note">${s.tag === "Maior mediana" ? "foco em pico de mediana (maior consistência/peso no time)" : diff < 0.15 ? "times praticamente iguais" : diff < 0.4 ? "times bem equilibrados" : "equilíbrio limitado pelos atletas marcados"}</span></div>
    <div class="teams">${s.teams
      .map(
        (
          t,
          ti,
-       ) => `<article class="team"><header><b>Time ${String.fromCharCode(65 + ti)}</b><span class="avg">Média: ${f2(stats[ti])}</span></header>
+       ) => `<article class="team"><header><b>Time ${String.fromCharCode(65 + ti)}</b><span class="avg">Média: ${f2(stats[ti])} · Mediana: ${f2(medians[ti])}</span></header>
      <div class="team-subbar">
        <span>Corrida: <b>${f2(attrStats[ti].corrida)}</b></span>
        <span>Fôlego: <b>${f2(attrStats[ti].folego)}</b></span>
